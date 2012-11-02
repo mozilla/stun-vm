@@ -1,0 +1,11 @@
+# boxgrinder script for generating a base VM image
+name: sl6-stun
+summary: STUN server on a Scientific Linux 6.x base
+appliances:
+  - sl6
+hardware:
+  partitions:
+    "/":
+      size: 2
+packages:
+  - stun-server

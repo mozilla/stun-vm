@@ -1,0 +1,12 @@
+# boxgrinder script for generating a base VM image
+name: sl6
+summary: Scientific Linux 6.x base
+os:
+  name: sl
+  version: 6
+hardware:
+  partitions:
+    "/":
+      size: 8
+packages:
+  - @core
