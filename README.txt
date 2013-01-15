@@ -7,22 +7,33 @@ https://tools.ietf.org/html/rfc5389
 https://tools.ietf.org/html/rfc5766
 https://tools.ietf.org/html/rfc5245
 
+== Build ==
+
+Use the rpm spec file and patches to build the stun server,
+and deploy it with the puppet manifest.
+
+The RPM we build is based off the EPEL version, with the NAT
+patch from here:
+
+http://www.voip-info.org/wiki/view/Vovida.org+STUN+server
+
 == AWS setup ==
 
-The stun server needs two public IP addresses to determine if clients
-are behind a symmetric NAT. To get two addresses on a single aws VM
-we must use the 'Virtual Private Cloud' feature.
+To provision an instance with a single public IP (no vpc required):
 
-1. Create a VPC with a single subnet and an internet gateway
-2. Create a security group for that subnet called 'stun'
-  - add inbound rules for UDP and TCP port 3478 from any source
-  - optionally add rules for ICMP echo requests
-  - optionally add a rule for ssh if you need to login
-3. Allocate two elastic IP addresses for the VPC
-4. Run an instance in, allocating two private IP addresses
-5. Attach an elastic IP to each of the private IPs
-6. start the stun server with the private IPs on the command line:
+1. yum install puppet
+2. git clone <this repo>
+3. puppet apply --modulepath=<repobase>/puppet/modules <repobase>/puppet/bootstrap.pp
 
-   /usr/sbin/stund -h 10.0.0.27 -a 10.0.0.103
+Make sure the security group for that the instance has:
+  - inbound rules for UDP and TCP port 3478 from any source
+  - optionally rules for ICMP echo requests
+  - optionally a rule for ssh if you need to log in
 
-7. Verify 'stun-client <public-ip>' works from an external host
+This should leave you with a fully functioning stun server. Verify with:
+
+4. stun-client <public-ip>
+
+You probably want to bind an elastic IP to the instance.
+
+Logs are at /service/stun-server/log/main/current.
