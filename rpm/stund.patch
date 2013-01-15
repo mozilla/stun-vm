@@ -1,0 +1,159 @@
+diff -ruN stund/server.cxx stund-X/server.cxx
+--- stund/server.cxx	2005-08-14 00:19:29.000000000 +0400
++++ stund/server.cxx-nat	2011-09-16 21:58:06.367047254 +0400
+@@ -30,6 +30,8 @@
+         << " STUN servers need two IP addresses and two ports, these can be specified with:" << endl
+         << "  -h sets the primary IP" << endl
+         << "  -a sets the secondary IP" << endl
++        << "  -e (patch) sets the primary (e)xternal IP" << endl
++        << "  -s (patch) sets the (s)econdary external IP" << endl
+         << "  -p sets the primary port and defaults to 3478" << endl
+         << "  -o sets the secondary port and defaults to 3479" << endl
+         << "  -b makes the program run in the backgroud" << endl
+@@ -50,9 +52,13 @@
+    initNetwork();
+ 
+    clog << "STUN server version "  <<  STUN_VERSION << endl;
++   clog << "Patched by Vladimir Latyshev (latysheff@gmail.com) to support STUN server working behind NAT" << endl;
++   clog << "type --help for help" << endl;
+       
+    StunAddress4 myAddr;
+    StunAddress4 altAddr;
++   StunAddress4 myEAddr;
++   StunAddress4 altEAddr;
+    bool verbose=false;
+    bool background=false;
+    
+@@ -60,6 +66,10 @@
+    altAddr.addr = 0;
+    myAddr.port = STUN_PORT;
+    altAddr.port = STUN_PORT+1;
++   myEAddr.addr = 0;
++   altEAddr.addr = 0;
++   myEAddr.port = STUN_PORT;
++   altEAddr.port = STUN_PORT+1;
+    int myPort = 0;
+    int altPort = 0;
+    int myMediaPort = 0;
+@@ -105,6 +115,26 @@
+          }
+          stunParseServerName(argv[arg], altAddr);
+       }
++      else if ( !strcmp( argv[arg] , "-e" ) )
++      {
++         arg++;
++         if ( argc <= arg ) 
++         {
++            usage();
++            exit(-1);
++         }
++         stunParseServerName(argv[arg], myEAddr);
++      }
++      else if ( !strcmp( argv[arg] , "-s" ) )
++      {
++         arg++;
++         if ( argc <= arg ) 
++         {
++            usage();
++            exit(-1);
++         }
++         stunParseServerName(argv[arg], altEAddr);
++      }
+       else if ( !strcmp( argv[arg] , "-p" ) )
+       {
+          arg++;
+@@ -214,7 +244,15 @@
+    if (pid == 0) //child or not using background
+    {
+       StunServerInfo info;
+-      bool ok = stunInitServer(info, myAddr, altAddr, myMediaPort, verbose);
++      if ( myEAddr.addr == 0 )
++      {
++         myEAddr = myAddr;
++      }
++      if ( altEAddr.addr == 0 )
++      {
++         altEAddr = altAddr;
++      }
++      bool ok = stunInitServer(info, myAddr, altAddr, myEAddr, altEAddr, myMediaPort, verbose);
+       
+       int c=0;
+       while (ok)
+@@ -223,7 +261,7 @@
+          c++;
+          if ( c%1000 == 0 ) 
+          {
+-            clog << "*";
++            //clog << "*";
+          }
+       }
+       // Notreached
+diff -ruN stund/stun.cxx stund-X/stun.cxx
+--- stund/stun.cxx	2005-08-14 04:39:03.000000000 +0400
++++ stund-X/stun.cxx	2011-09-16 21:58:06.368047000 +0400
+@@ -671,6 +671,10 @@
+       tick |= lowtick;
+ #elif defined(__GNUC__) && ( defined(__i686__) || defined(__i386__) )
+       asm("rdtsc" : "=A" (tick));
++#elif defined(__GNUC__) && defined(__x86_64__)
++      unsigned _a,_d;
++      asm("rdtsc" : "=A" (_a), "=D" (_d));
++      tick = ((unsigned long long) (_a)) | (( (unsigned long long) (_d)) << 32);
+ #elif defined (__SUNPRO_CC) || defined( __sparc__ )	
+       tick = gethrtime();
+ #elif defined(__MACH__) 
+@@ -1245,8 +1249,9 @@
+ }
+ 
+ bool
+-stunInitServer(StunServerInfo& info, const StunAddress4& myAddr,
+-               const StunAddress4& altAddr, int startMediaPort, bool verbose )
++stunInitServer(StunServerInfo& info, const StunAddress4& myAddr, const StunAddress4& altAddr, 
++	const StunAddress4& myEAddr, const StunAddress4& altEAddr,
++	int startMediaPort, bool verbose )
+ {
+    assert( myAddr.port != 0 );
+    assert( altAddr.port!= 0 );
+@@ -1255,6 +1260,8 @@
+ 	
+    info.myAddr = myAddr;
+    info.altAddr = altAddr;
++   info.myEAddr = myEAddr;
++   info.altEAddr = altEAddr;
+ 	
+    info.myFd = INVALID_SOCKET;
+    info.altPortFd = INVALID_SOCKET;
+@@ -1554,10 +1561,9 @@
+          from.addr = info.myAddr.addr;
+          from.port = relayPort;
+       }
+-      
+       ok = stunServerProcessMsg( msg, msgLen, from, secondary,
+-                                 recvAltIp ? info.altAddr : info.myAddr,
+-                                 recvAltIp ? info.myAddr : info.altAddr, 
++                                 recvAltIp ? info.altEAddr : info.myEAddr,
++                                 recvAltIp ? info.myEAddr : info.altEAddr, 
+                                  &resp,
+                                  &dest,
+                                  &hmacPassword,
+diff -ruN stund/stun.h stund-X/stun.h
+--- stund/stun.h	2005-08-14 04:37:33.000000000 +0400
++++ stund-X/stun.h	2011-09-16 21:58:06.368047000 +0400
+@@ -217,6 +217,8 @@
+ {
+       StunAddress4 myAddr;
+       StunAddress4 altAddr;
++      StunAddress4 myEAddr;
++      StunAddress4 altEAddr;
+       Socket myFd;
+       Socket altPortFd;
+       Socket altIpFd;
+@@ -276,6 +278,8 @@
+ stunInitServer(StunServerInfo& info, 
+                const StunAddress4& myAddr, 
+                const StunAddress4& altAddr,
++               const StunAddress4& myEAddr, 
++               const StunAddress4& altEAddr,
+                int startMediaPort,
+                bool verbose);
+ 
