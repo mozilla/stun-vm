@@ -1,6 +1,6 @@
 class stun-server {
   include daemontools
-  $stun_rpm = 'stun-server-0.96-4.amzn1.x86_64.rpm'
+  $stun_rpm = 'stun-server-0.96-6svc.amzn1.x86_64.rpm'
 
   file {
     "/var/tmp/${stun_rpm}":
