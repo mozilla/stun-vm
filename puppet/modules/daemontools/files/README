@@ -1,0 +1,7 @@
+This directory is 100% managed by puppet.
+
+ANY files or subdirectories put in here by anything other than puppet will be deleted.
+
+ANY modifications to existing files will be clobbered.
+
+So, save yourself the heartache and use puppet.

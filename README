@@ -1,0 +1,41 @@
+These are puppet manifests and rpm spec files for provisioning VMs running stun
+servers.
+
+Mozilla uses this to provide public STUN (RFC 5389) servers for use with WebRTC
+ICE (RFC 5245) NAT traversal.
+
+https://tools.ietf.org/html/rfc5389
+https://tools.ietf.org/html/rfc5766
+https://tools.ietf.org/html/rfc5245
+
+== AWS setup ==
+
+To provision an instance with a single public IP (no vpc required):
+
+1. yum install puppet
+2. git clone <this repo>
+3. puppet apply --modulepath=<repobase>/puppet/modules <repobase>/puppet/bootstrap.pp
+
+This should leave you with a fully functioning stun server. Verify with:
+
+4. stun-client <public-ip>
+
+We will eventually build an AMI from the above.
+
+Notes:
+Logs are at /service/stun-server/log/main/current.
+
+You probably want to bind an elastic IP to the instance.
+
+Make sure the security group for that the instance has:
+  - inbound rules for UDP and TCP port 3478 from any source
+  - optionally rules for ICMP echo requests
+  - optionally a rule for ssh if you need to log in
+
+== RPM changes ==
+The RPM we build is based off the EPEL version, with the NAT
+patch from here:
+
+http://www.voip-info.org/wiki/view/Vovida.org+STUN+server
+
+No other changes are made (yet).
