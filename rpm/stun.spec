@@ -3,7 +3,7 @@
 
 Name:		stun
 Version:	0.96
-Release:	5svc%{?dist}
+Release:	6svc%{?dist}
 Summary:	Implements a simple Stun Client
 Group:		Applications/Communications
 License:	Vovida Software License 1.0
@@ -32,6 +32,14 @@ IETF RFC 3489, available at http://www.ietf.org/rfc/rfc3489.txt
 %prep
 %setup -q  -n %{download_name}
 %patch1 -p1
+export id=" Mozilla.org %{release}"
+# compute the length of our version identifier and pad to a multiple of four
+x=$(( ${#id} % 4 ))
+if [[ $x != 0 ]] ; then
+  id=$(printf "%%-$(( ${#id} + 4 - $x ))s" "$id")
+fi
+# patch it in
+sed -i "s/STUN_VERSION;/STUN_VERSION \"${id}\";/" stun.cxx
 
 %build
 make %{?_smp_mflags}
@@ -63,6 +71,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Jan 15 2013 Wesley Dawson <whd@mozilla.com> - 0.96-6svc
+- Patched to add our build identifier
+
 * Mon Jan 14 2013 Wesley Dawson <whd@mozilla.com> - 0.96-5svc
 - Initial version for Mozilla
 - Fix NAT handling for AWS (patch1)
@@ -85,4 +96,3 @@ rm -rf $RPM_BUILD_ROOT
 
 * Mon Jan 21 2008 Huzaifa Sidhpurwala <huzaifas@redhat.com> - 0.96-0
 - Initial version
-
